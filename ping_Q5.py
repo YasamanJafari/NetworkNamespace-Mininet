@@ -285,7 +285,6 @@ class Ping(object):
 			self.uploaded_files.append(file_name)
 			self.file_name_chunks_count_received[file_name] = 0
 			while(chunk):
-				print("CHUNK __--____--_______--____--__ " + chunk)
 				send_time = self.send_one_ping(current_socket, file_name, chunk, chunkID)
 				chunkID += 1
 				chunk = f.read(CHUNK_SIZE)
@@ -296,7 +295,8 @@ class Ping(object):
 			self.send_count += 1
 		elif cmd == "download":
 			file_name = raw_input("What is your file address? (download)\n")
-
+			print("ACCESS ALLOWED: ")
+			print(self.uploaded_files)
 			if(file_name in self.uploaded_files):
 				send_time = self.send_one_ping(current_socket, file_name, "return$" + self.source + "$" + file_name)
 				self.file_name_and_chunks[file_name] = {}
@@ -317,10 +317,8 @@ class Ping(object):
 		receive_time, packet_size, ip, ip_header, icmp_header, data = self.receive_one_ping(current_socket)
 		time.sleep(0.1)
 		if(not packet_size == 0 ):
-			print("recieve_packet " + data + "\n");
 			self.print_success(0, ip, packet_size, ip_header, icmp_header)
 
-			print("()()()()()  from " + data)
 			if data.split('$')[1] == "return":
 				self.return_msg_to_home[data.split('$')[0]] = True;
 				self.file_names_to_return.append(data.split('$')[0])
@@ -356,9 +354,8 @@ class Ping(object):
 			randomDst = random.randrange(1, hostsCount + 1)
 		dst = "10.0.0." + str(randomDst)
 
-		print("!@#!@#!@#!@#!@#! " + chunk)
 		if file_name in self.return_msg_to_home and self.return_msg_to_home[file_name] == True and not chunk.split('$')[0] == "return":
-			print "chunk %s is file %s "%(chunk, file_name)
+			print "send home -- chunk %s in file %s "%(chunk, file_name)
 			dst = self.host_ip_addr[file_name]
 			src = self.source
 		# print("Random Dst: " + dst + "\n")
@@ -373,9 +370,7 @@ class Ping(object):
 
 		#inlude a small payload inside the ICMP packet
 		#and have the ip packet contain the ICMP packet
-		print "src is %s and dst is %s"%(src, dst)
 		if(file_name in self.return_msg_to_home and self.return_msg_to_home[file_name] == True and not chunk.split('$')[0] == "return"):
-			print ("!!!!!!!!! " + chunk.split('$')[0] + "\n")
 			if(file_name in self.file_names_to_return):
 				icmp.contains(ImpactPacket.Data("1$" + chunk + "$" + chunk_id + "$" + file_name))
 		else:
