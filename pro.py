@@ -35,6 +35,8 @@ ICMP_MAX_RECV = 2048 # Max size of incoming buffer
 MAX_SLEEP = 1000
 CHUNK_SIZE = 8
 
+file_size_and_name = {}
+
 
 def is_valid_ip4_address(addr):
 	parts = addr.split(".")
@@ -106,6 +108,9 @@ class Ping(object):
 		self.min_time = 999999999
 		self.max_time = 0.0
 		self.total_time = 0.0
+
+		self.file_names_to_return = []
+		return_msg_to_home = False;
 
 	#--------------------------------------------------------------------------
 
@@ -265,45 +270,48 @@ class Ping(object):
 		print("send_packet\n")
 		cmd = raw_input()
 		if cmd == "upload":
-			fileName = raw_input("What is your file address? (upload)\n")
+			file_name = raw_input("What is your file address? (upload)\n")
 			chunkID = 1;
-			f = open(fileName, 'rb')
+			f = open(file_name, 'rb')
 			chunk = f.read(CHUNK_SIZE)
 			while(chunk):
-				send_time = self.send_one_ping(current_socket, fileName, chunk, chunkID)
+				send_time = self.send_one_ping(current_socket, file_name, chunk, chunkID)
 				chunkID += 1
 				chunk = f.read(CHUNK_SIZE)
+			file_size_and_name[file_name] = chunkID - 1
 			f.close()
 			if send_time == None:
 				return
 			self.send_count += 1
 		elif cmd == "download":
-			fileName = raw_input("What is your file address? (download)\n")
-			send_time = self.send_one_ping(current_socket, fileName, "return", chunkID, self.source)
-
+			file_name = raw_input("What is your file address? (download)\n")
+			send_time = self.send_one_ping(current_socket, file_name, "return", chunkID, self.source)
+			file_names_to_return.append(file_name);
 		else:
 			print("The command you entered is not available!\n")
     
 
 	def recieve_packet(self, current_socket):
 		receive_time, packet_size, ip, ip_header, icmp_header, data = self.receive_one_ping(current_socket)
-		print("recieve_packet + " " + data\n")
+		# print("recieve_packet " + data + "\n");
 		self.print_success(0, ip, packet_size, ip_header, icmp_header)
 		if data.split('$')[0] == "return":
 			host_ip_addr = data.split('$')[1]
+			self.return_msg_to_home = True;
+
 		elif icmp_header['type'] == ICMP_ECHOREPLY:
 			self.send_one_ping(current_socket)
 		
 
 	# send an ICMP ECHO_REQUEST packet
-	def send_one_ping(self, current_socket, fileName = "", chunk = "", chunk_id = 0, host_addr = "0.0.0.0"):
+	def send_one_ping(self, current_socket, file_name = "", chunk = "", chunk_id = 0, host_addr = "0.0.0.0"):
 		
 		#Create a new IP packet and set its source and destination IP addresses
 		randomSrc = random.randrange(1, hostsCount + 1)
 		# while ("10.0.0." + str(randomSrc)) == self.source:
 		# 	randomSrc = random.randrange(1, hostsCount + 1)
 		src = "10.0.0." + str(randomSrc)
-		print("Random Source: " + src)
+		# print("Random Source: " + src)
 
 		randomDst = random.randrange(1, hostsCount + 1)
 		while (randomDst == randomSrc) or (("10.0.0." + str(randomDst)) == self.source):
@@ -311,7 +319,7 @@ class Ping(object):
 		dst = "10.0.0." + str(randomDst)
 		if(chunk == "return"):
 			dst = host_addr
-		print("Random Dst: " + dst)
+		# print("Random Dst: " + dst + "\n")
 
 		ip = ImpactPacket.IP()
 		ip.set_ip_src(src)
@@ -324,7 +332,7 @@ class Ping(object):
 		#inlude a small payload inside the ICMP packet
 		#and have the ip packet contain the ICMP packet
 		if chunk == "return":
-			icmp.contains(ImpactPacket.Data("return" + "$" + self.source))
+			icmp.contains(ImpactPacket.Data("return" + "$" + self.source + "$" + file_name))
 		else:
 			icmp.contains(ImpactPacket.Data("testData"))
 		ip.contains(icmp)
@@ -409,6 +417,6 @@ print(curr_ip)
 hostsCount = input("How many hosts do you have?\n")
 
 ping(curr_ip, "0.0.0.0")    #put your IP and destination IP address as the ping function argument and run the code. you can ping
-#the destination with your own code!!!
+							#the destination with your own code!!!
 
 
