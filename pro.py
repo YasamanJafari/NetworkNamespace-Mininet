@@ -265,7 +265,7 @@ class Ping(object):
 		print("send_packet\n")
 		cmd = raw_input()
 		if cmd == "upload":
-			fileName = raw_input("What is your file address?\n")
+			fileName = raw_input("What is your file address? (upload)\n")
 			chunkID = 1;
 			f = open(fileName, 'rb')
 			chunk = f.read(CHUNK_SIZE)
@@ -277,20 +277,26 @@ class Ping(object):
 			if send_time == None:
 				return
 			self.send_count += 1
+		elif cmd == "download":
+			fileName = raw_input("What is your file address? (download)\n")
+			send_time = self.send_one_ping(current_socket, fileName, "return", chunkID, self.source)
+
 		else:
 			print("The command you entered is not available!\n")
     
 
 	def recieve_packet(self, current_socket):
-		print("recieve_packet\n")
-		receive_time, packet_size, ip, ip_header, icmp_header = self.receive_one_ping(current_socket)
+		receive_time, packet_size, ip, ip_header, icmp_header, data = self.receive_one_ping(current_socket)
+		print("recieve_packet + " " + data\n")
 		self.print_success(0, ip, packet_size, ip_header, icmp_header)
-		if icmp_header['type'] == ICMP_ECHOREPLY:
+		if data.split('$')[0] == "return":
+			host_ip_addr = data.split('$')[1]
+		elif icmp_header['type'] == ICMP_ECHOREPLY:
 			self.send_one_ping(current_socket)
 		
 
 	# send an ICMP ECHO_REQUEST packet
-	def send_one_ping(self, current_socket, fileName = "", chunk = "", chunk_id = 0):
+	def send_one_ping(self, current_socket, fileName = "", chunk = "", chunk_id = 0, host_addr = "0.0.0.0"):
 		
 		#Create a new IP packet and set its source and destination IP addresses
 		randomSrc = random.randrange(1, hostsCount + 1)
@@ -303,6 +309,8 @@ class Ping(object):
 		while (randomDst == randomSrc) or (("10.0.0." + str(randomDst)) == self.source):
 			randomDst = random.randrange(1, hostsCount + 1)
 		dst = "10.0.0." + str(randomDst)
+		if(chunk == "return"):
+			dst = host_addr
 		print("Random Dst: " + dst)
 
 		ip = ImpactPacket.IP()
@@ -315,7 +323,10 @@ class Ping(object):
 
 		#inlude a small payload inside the ICMP packet
 		#and have the ip packet contain the ICMP packet
-		icmp.contains(ImpactPacket.Data("testData"))
+		if chunk == "return":
+			icmp.contains(ImpactPacket.Data("return" + "$" + self.source))
+		else:
+			icmp.contains(ImpactPacket.Data("testData"))
 		ip.contains(icmp)
 
 
@@ -381,7 +392,7 @@ class Ping(object):
 				packet_size = len(packet_data) - 28
 				ip = socket.inet_ntoa(struct.pack("!I", ip_header["src_ip"]))
 				# XXX: Why not ip = address[0] ???
-				return receive_time, packet_size, ip, ip_header, icmp_header
+				return receive_time, packet_size, ip, ip_header, icmp_header, packet_data[:20]
 
 			timeout = timeout - select_duration
 			if timeout <= 0:
