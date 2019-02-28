@@ -110,7 +110,8 @@ class Ping(object):
 		self.total_time = 0.0
 
 		self.file_names_to_return = []
-		return_msg_to_home = False;
+		self.return_msg_to_home = False
+		self.host_ip_addr = ""
 
 	#--------------------------------------------------------------------------
 
@@ -139,12 +140,13 @@ class Ping(object):
 			from_info = "%s (%s)" % (self.destination, ip)
 
 	   	msg = "%d bytes from %s: icmp_seq=%d ttl=%d time=%.1f ms" % (packet_size, from_info, icmp_header["seq_number"], ip_header["ttl"], delay)
+	   	# msg = ""
 
 		if self.quiet_output:
 			self.response.output.append(msg)
 			self.response.ret_code = 0
-		else:
-			print(msg)
+		# else:
+		# 	print(msg)
 		if header:
 			print("IP header: %r" % ip_header)
 			print("ICMP header: %r" % icmp_header)
@@ -254,6 +256,7 @@ class Ping(object):
 			# 	self.recieve_packet(current_socket)
 			# if sys.stdin in readable:
 			# 	self.send_packet(current_socket)
+			
 
 			for s in readable:	
 				if s == sys.stdin:
@@ -284,32 +287,40 @@ class Ping(object):
 				return
 			self.send_count += 1
 		elif cmd == "download":
+
 			file_name = raw_input("What is your file address? (download)\n")
-			send_time = self.send_one_ping(current_socket, file_name, "return", chunkID, self.source)
-			file_names_to_return.append(file_name);
+			send_time = self.send_one_ping(current_socket, file_name, "return$" + self.source + "$" + file_name)
+			self.file_names_to_return.append(file_name);
 		else:
 			print("The command you entered is not available!\n")
     
 
 	def recieve_packet(self, current_socket):
 		receive_time, packet_size, ip, ip_header, icmp_header, data = self.receive_one_ping(current_socket)
-		# print("recieve_packet " + data + "\n");
+		time.sleep(0.1)
+		print("recieve_packet " + data + "\n");
 		self.print_success(0, ip, packet_size, ip_header, icmp_header)
+
 		if data.split('$')[0] == "return":
-			host_ip_addr = data.split('$')[1]
+			print("download mode")
+			self.host_ip_addr = data.split('$')[1]
 			self.return_msg_to_home = True;
 
+		elif data == "***":
+			print("SUCCESS")
+
 		elif icmp_header['type'] == ICMP_ECHOREPLY:
-			self.send_one_ping(current_socket)
+			if not data == "***":
+				self.send_one_ping(current_socket)
 		
 
 	# send an ICMP ECHO_REQUEST packet
-	def send_one_ping(self, current_socket, file_name = "", chunk = "", chunk_id = 0, host_addr = "0.0.0.0"):
+	def send_one_ping(self, current_socket, file_name = "", chunk = "", chunk_id = 0):
 		
 		#Create a new IP packet and set its source and destination IP addresses
 		randomSrc = random.randrange(1, hostsCount + 1)
-		# while ("10.0.0." + str(randomSrc)) == self.source:
-		# 	randomSrc = random.randrange(1, hostsCount + 1)
+		while ("10.0.0." + str(randomSrc)) == self.source:
+			randomSrc = random.randrange(1, hostsCount + 1)
 		src = "10.0.0." + str(randomSrc)
 		# print("Random Source: " + src)
 
@@ -317,8 +328,8 @@ class Ping(object):
 		while (randomDst == randomSrc) or (("10.0.0." + str(randomDst)) == self.source):
 			randomDst = random.randrange(1, hostsCount + 1)
 		dst = "10.0.0." + str(randomDst)
-		if(chunk == "return"):
-			dst = host_addr
+		if self.return_msg_to_home == True and not chunk.split('$')[0] == "return":
+			dst = self.host_ip_addr
 		# print("Random Dst: " + dst + "\n")
 
 		ip = ImpactPacket.IP()
@@ -331,10 +342,13 @@ class Ping(object):
 
 		#inlude a small payload inside the ICMP packet
 		#and have the ip packet contain the ICMP packet
-		if chunk == "return":
-			icmp.contains(ImpactPacket.Data("return" + "$" + self.source + "$" + file_name))
+		print "src is %s and dst is %s"%(src, dst)
+		if chunk.split('$')[0] == "return":
+			icmp.contains(ImpactPacket.Data(chunk))
+		elif(self.return_msg_to_home == True and not chunk.split('$')[0] == "return"):
+			icmp.contains(ImpactPacket.Data("***"))
 		else:
-			icmp.contains(ImpactPacket.Data("testData"))
+			icmp.contains(ImpactPacket.Data("HelloWorld"))
 		ip.contains(icmp)
 
 
@@ -363,6 +377,7 @@ class Ping(object):
 	def receive_one_ping(self, current_socket):
 		
 		timeout = self.timeout / 1000.0
+		
 
 		while True: # Loop while waiting for packet or timeout
 			select_start = default_timer()
@@ -400,7 +415,7 @@ class Ping(object):
 				packet_size = len(packet_data) - 28
 				ip = socket.inet_ntoa(struct.pack("!I", ip_header["src_ip"]))
 				# XXX: Why not ip = address[0] ???
-				return receive_time, packet_size, ip, ip_header, icmp_header, packet_data[:20]
+				return receive_time, packet_size, ip, ip_header, icmp_header, packet_data[28:]
 
 			timeout = timeout - select_duration
 			if timeout <= 0:
