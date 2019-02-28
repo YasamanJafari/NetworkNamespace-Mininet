@@ -1,0 +1,16 @@
+
+
+                GUIDE LINES FOR EFFECTIVE COLOR TERMINAL USAGE
+                                         
+                     Based on research done at Tektronix 
+                       and reported in Handshake, 1985.
+
+PHYSIOLOGICAL GUIDELINES:
+
+        Avoid simultaneous display of  highly  saturated,  spectrally  extreme 
+colors.  Reds, oranges, yellows,  and greens can be viewed without refocusing, 
+but  cyan  and  blues  cannot be easily viewed at the same time at as red.  To 
+avoid frequent refocusing and visual fatigue,  extreme color pairs such as red 
+and  blue  or  yellow  and  purple  should  avoided.   However,   desaturating 
+spectrally extreme colors will reduce the need for refocusing. 
+

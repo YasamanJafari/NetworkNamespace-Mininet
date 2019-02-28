@@ -111,11 +111,12 @@ class Ping(object):
 		self.total_time = 0.0
 
 		self.file_names_to_return = []
-		self.return_msg_to_home = False
+		self.return_msg_to_home = {}
 		self.host_ip_addr = {}
 		self.uploaded_files = []
 		self.file_name_chunks_count_received = {}
 		self.file_size_and_name = {}
+		self.file_name_and_chunks = {}
 
 	#--------------------------------------------------------------------------
 
@@ -298,10 +299,18 @@ class Ping(object):
 
 			if(file_name in self.uploaded_files):
 				send_time = self.send_one_ping(current_socket, file_name, "return$" + self.source + "$" + file_name)
+				self.file_name_and_chunks[file_name] = {}
 			else:
 				print("You do not have access to this file.")
 		else:
 			print("The command you entered is not available!\n")
+
+	def write_to_file(self, file_name):
+		f = open("./downloaded_" + file_name, "w+")
+		for i in range(1, self.file_size_and_name[file_name] + 1):
+			f.write(self.file_name_and_chunks[file_name][i])
+		f.close() 
+		print ("SUCCESSFULLY DOWNLOADED FILE ---- (downloaded_" + file_name + ")")
     
 
 	def recieve_packet(self, current_socket):
@@ -313,7 +322,7 @@ class Ping(object):
 
 			print("()()()()()  from " + data)
 			if data.split('$')[1] == "return":
-				self.return_msg_to_home = True;
+				self.return_msg_to_home[data.split('$')[0]] = True;
 				self.file_names_to_return.append(data.split('$')[0])
 				self.host_ip_addr[data.split('$')[0]] = data.split('$')[2]
 
@@ -321,9 +330,11 @@ class Ping(object):
 			# 1 $ chunk $ chunkID $ filename
 			elif icmp_header['type'] == ICMP_ECHO and data.split('$')[0] == "1":
 				print("SUCCESSFULLY RECEIVED file: " + data.split('$')[3] + " chunk: " + data.split('$')[1])
+				self.file_name_and_chunks[data.split('$')[3]][int(data.split('$')[2])] = data.split('$')[1]
 				self.file_name_chunks_count_received[data.split('$')[3]] = self.file_name_chunks_count_received[data.split('$')[3]] + 1
 				if(self.file_name_chunks_count_received[data.split('$')[3]] == self.file_size_and_name[data.split('$')[3]]):
 					print("SUCCESSFULLY RECEIVED ALL FILE ____ " + data.split('$')[3])
+					self.write_to_file(data.split('$')[3])
 
 			elif icmp_header['type'] == ICMP_ECHOREPLY:
 				if not data.split('$')[0] == "1":
@@ -346,7 +357,7 @@ class Ping(object):
 		dst = "10.0.0." + str(randomDst)
 
 		print("!@#!@#!@#!@#!@#! " + chunk)
-		if self.return_msg_to_home == True and not chunk.split('$')[0] == "return":
+		if file_name in self.return_msg_to_home and self.return_msg_to_home[file_name] == True and not chunk.split('$')[0] == "return":
 			print "chunk %s is file %s "%(chunk, file_name)
 			dst = self.host_ip_addr[file_name]
 			src = self.source
@@ -363,7 +374,7 @@ class Ping(object):
 		#inlude a small payload inside the ICMP packet
 		#and have the ip packet contain the ICMP packet
 		print "src is %s and dst is %s"%(src, dst)
-		if(self.return_msg_to_home == True and not chunk.split('$')[0] == "return"):
+		if(file_name in self.return_msg_to_home and self.return_msg_to_home[file_name] == True and not chunk.split('$')[0] == "return"):
 			print ("!!!!!!!!! " + chunk.split('$')[0] + "\n")
 			if(file_name in self.file_names_to_return):
 				icmp.contains(ImpactPacket.Data("1$" + chunk + "$" + chunk_id + "$" + file_name))
